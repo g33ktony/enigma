@@ -1,0 +1,714 @@
+<!doctype html>
+<html lang="es">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+<meta charset="utf-8">
+<title>Máquina Enigma</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Stencil+Display:wght@600;800&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: a wooden transport case holding a black crackle-finish machine, stacked top→bottom like the real device
+   (rotors · lamps · keys · plugboard), with the signal-path diagram and tape below; the manual is a second tab.
+   Deliberate single dark look: wood + black enamel + ivory bakelite + amber lamps. */
+:root{
+  color-scheme:dark;
+  --wood:#2a1910; --wood-hi:#4b2e1a; --panel:#141517; --panel-2:#1f2023; --edge:#3a3c42;
+  --ivory:#ece2c9; --muted:#a69d89; --amber:#ffb43c; --amber-dim:#4a3a26; --brass:#c79f55;
+  --fwd:#ff5b45; --back:#4fb4ff; --ok:#7fcf7f; --err:#ff7b6b;
+  --f-display:"Big Shoulders Stencil Display", Impact, "Arial Narrow", sans-serif;
+  --f-body:"IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --k:clamp(30px, 8.6vw, 56px);
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{background:var(--wood)}
+body{
+  background:var(--wood);
+  background-image:repeating-linear-gradient(91deg,rgba(255,220,180,.03) 0 2px,transparent 2px 11px),
+    repeating-linear-gradient(89deg,rgba(0,0,0,.12) 0 1px,transparent 1px 23px),
+    linear-gradient(180deg,var(--wood-hi),var(--wood) 60%);
+  background-attachment:fixed;
+  color:var(--ivory);font-family:var(--f-body);font-size:15px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:18px 48px;
+}
+.wrap{max-width:1120px;margin:0 auto;display:grid;gap:18px}
+button,select,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* ---------- header ---------- */
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.plate{display:flex;align-items:baseline;gap:12px;padding:8px 18px;background:linear-gradient(180deg,#1b1c1f,#0e0f10);
+  border:2px solid var(--brass);border-radius:6px;box-shadow:inset 0 0 0 3px #0008,0 4px 14px #0007}
+.plate h1{margin:0;font-family:var(--f-display);font-weight:800;font-size:clamp(30px,6vw,44px);letter-spacing:.14em;color:var(--brass);line-height:1}
+.plate span{font-family:var(--f-mono);font-size:12px;color:var(--muted);letter-spacing:.08em}
+nav{display:flex;gap:6px;background:#0007;padding:5px;border-radius:999px;border:1px solid #0009}
+nav a{padding:8px 18px;border-radius:999px;text-decoration:none;color:var(--muted);font-weight:600;letter-spacing:.04em}
+nav a[aria-current="page"]{background:var(--ivory);color:#1a1209}
+
+/* ---------- machine case ---------- */
+.case{background:var(--panel);border-radius:14px;padding:clamp(12px,2.5vw,26px);display:grid;gap:clamp(14px,2.4vw,24px);
+  background-image:radial-gradient(circle at 20% 10%,#ffffff08,transparent 40%),
+    repeating-radial-gradient(circle at 30% 40%,#ffffff05 0 1px,transparent 1px 4px);
+  border:1px solid #000;box-shadow:inset 0 0 0 8px #0e0f10,inset 0 0 0 9px var(--edge),0 18px 40px #000a}
+.sec-label{font-family:var(--f-display);font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--brass);font-size:15px;margin:0 0 8px;display:flex;align-items:center;gap:10px}
+.sec-label small{font-family:var(--f-body);letter-spacing:.02em;text-transform:none;color:var(--muted);font-size:13px;font-weight:400}
+.sec-label::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--edge),transparent)}
+
+/* key sheet */
+.sheet{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;align-items:end}
+.field{display:grid;gap:4px;min-width:0}
+.field>span{font-size:12px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+select,input[type=text],textarea{background:#0c0d0e;border:1px solid var(--edge);border-radius:6px;padding:8px 10px;width:100%}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.btn{background:var(--panel-2);border:1px solid var(--edge);border-radius:6px;padding:8px 12px;cursor:pointer;font-weight:500}
+.btn:hover{border-color:var(--brass)}
+.btn.primary{background:var(--brass);color:#1a1209;border-color:var(--brass);font-weight:600}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.keyline{font-family:var(--f-mono);font-size:13px;color:var(--muted);background:#0a0b0c;border:1px dashed var(--edge);border-radius:6px;padding:8px 10px;overflow-wrap:anywhere}
+.keyline b{color:var(--ivory);font-weight:600}
+.msg{font-size:13px;min-height:1.2em}
+.msg.err{color:var(--err)} .msg.ok{color:var(--ok)}
+
+/* rotors */
+.rotorbay{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;padding:14px;border-radius:10px;background:linear-gradient(180deg,#0b0b0c,#18191b);border:1px solid #000;box-shadow:inset 0 3px 12px #000}
+.unit{display:grid;gap:8px;justify-items:center;padding:10px;border-radius:8px;background:#1a1b1e;border:1px solid var(--edge);width:136px}
+.unit .ttl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:center}
+.unit.refl{background:#121314}
+.refl-face{width:64px;height:118px;border-radius:8px;background:repeating-linear-gradient(0deg,#2b2c30 0 3px,#202124 3px 6px);border:1px solid #000;display:grid;place-items:center;font-family:var(--f-display);font-size:26px;color:var(--brass)}
+.wheel{display:flex;align-items:center;gap:6px}
+.thumb{width:22px;height:118px;border-radius:10px;cursor:ns-resize;touch-action:none;
+  background:repeating-linear-gradient(180deg,#3a3b40 0 3px,#151618 3px 6px);border:1px solid #000;box-shadow:inset 3px 0 6px #fff1,inset -4px 0 8px #000c}
+.thumb.spin{animation:spin .18s linear}
+@keyframes spin{from{background-position:0 0}to{background-position:0 6px}}
+.window{width:52px;height:118px;border-radius:6px;overflow:hidden;position:relative;background:var(--ivory);color:#1a1209;border:3px solid #000;box-shadow:inset 0 10px 14px #0007,inset 0 -10px 14px #0007}
+.strip{position:absolute;inset:0;display:grid;grid-template-rows:1fr 1.25fr 1fr;align-items:center;justify-items:center;font-family:var(--f-mono);font-weight:600}
+.strip span{font-size:16px;opacity:.45}
+.strip .cur{font-size:28px;opacity:1;line-height:1;text-align:center}
+.strip .cur small{display:block;font-size:10px;opacity:.7}
+.window::after{content:"";position:absolute;left:0;right:0;top:34%;height:32%;border-block:2px solid #b0402f80;pointer-events:none}
+.strip.tick{animation:tick .16s ease-out}
+@keyframes tick{from{transform:translateY(33%)}to{transform:none}}
+.arrows{display:grid;gap:4px}
+.arrows button{width:28px;height:28px;border-radius:50%;border:1px solid var(--edge);background:#0c0d0e;cursor:pointer;font-size:11px;line-height:1}
+.unit select{padding:5px 6px;font-size:13px}
+.unit label{display:grid;gap:2px;width:100%;font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.notchinfo{font-size:11px;color:var(--muted);font-family:var(--f-mono)}
+
+/* lamps & keys */
+.board{display:grid;gap:clamp(5px,1.2vw,10px);justify-items:center}
+.row{display:flex;gap:clamp(4px,1vw,10px)}
+.row:nth-child(2){margin-left:calc(var(--k)*.5)}
+.lamp{width:var(--k);height:var(--k);border-radius:50%;display:grid;place-items:center;font-family:var(--f-mono);font-weight:600;font-size:calc(var(--k)*.38);
+  background:radial-gradient(circle at 50% 45%,#3b3226,#16130f 70%);color:#6f604a;border:2px solid #000;box-shadow:inset 0 2px 4px #fff1,0 0 0 2px #2a2b2e;transition:background .08s,color .08s,box-shadow .2s}
+.lamp.on{background:radial-gradient(circle at 50% 45%,#fff6d8,var(--amber) 45%,#c06a10 90%);color:#2b1503;box-shadow:0 0 0 2px #2a2b2e,0 0 18px 6px #ffb43c99,0 0 50px 10px #ffb43c44}
+.key{width:var(--k);height:var(--k);border-radius:50%;cursor:pointer;font-family:var(--f-mono);font-weight:600;font-size:calc(var(--k)*.4);
+  background:radial-gradient(circle at 50% 35%,#2c2d31,#0b0b0c 75%);color:var(--ivory);border:3px solid #bfb9ab;
+  box-shadow:0 0 0 2px #000,0 5px 0 #000,0 7px 10px #0009;transition:transform .05s,box-shadow .05s;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+.key.down,.key:active{transform:translateY(4px);box-shadow:0 0 0 2px #000,0 1px 0 #000}
+
+/* plugboard */
+.plugwrap{position:relative;padding:14px 8px 26px;border-radius:10px;background:#0f1011;border:1px solid #000;box-shadow:inset 0 3px 12px #000;overflow:hidden}
+.socket{width:var(--k);display:grid;justify-items:center;gap:3px;cursor:pointer;background:none;border:0;padding:0}
+.socket .lbl{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.socket .holes{width:calc(var(--k)*.8);height:calc(var(--k)*.62);border-radius:6px;background:#2a2b2f;border:1px solid #000;display:flex;align-items:center;justify-content:space-evenly}
+.socket .holes i{width:28%;aspect-ratio:1;border-radius:50%;background:#000;box-shadow:inset 0 1px 2px #fff2}
+.socket.sel .holes{outline:2px solid var(--amber)}
+.socket.used .lbl{color:var(--ivory)}
+#cables{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.plug-tools{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;margin-top:10px}
+
+/* lower panels */
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:18px}
+.card{background:var(--panel);border:1px solid #000;border-radius:12px;padding:16px;box-shadow:0 10px 26px #0008;display:grid;gap:10px;min-width:0;align-content:start}
+.tape{font-family:var(--f-mono);font-size:15px;letter-spacing:.06em;background:#ece2c9;color:#1d140b;border-radius:4px;padding:10px 12px;min-height:3.2em;overflow-wrap:anywhere;
+  background-image:repeating-linear-gradient(90deg,transparent 0 22px,#0000000a 22px 23px);box-shadow:inset 0 2px 6px #0004}
+.tape.out{background-color:#f5d48d}
+.tape-h{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.tape-h .btn{padding:4px 10px;font-size:12px;text-transform:none;letter-spacing:0}
+textarea{min-height:90px;resize:vertical;font-family:var(--f-mono)}
+.check{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--muted)}
+.path{display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-family:var(--f-mono);font-size:13px}
+.path b{display:inline-grid;place-items:center;min-width:24px;height:24px;border-radius:4px;background:#0c0d0e;border:1px solid var(--edge)}
+.path b.f{border-color:var(--fwd);color:var(--fwd)} .path b.r{border-color:var(--back);color:var(--back)}
+.path i{font-style:normal;color:var(--muted);font-size:11px}
+.diagram{overflow-x:auto;border-radius:8px;background:#0b0c0d;border:1px solid #000}
+.diagram svg{display:block;min-width:640px;width:100%;height:auto}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--muted)}
+.legend span::before{content:"";display:inline-block;width:18px;height:3px;border-radius:2px;vertical-align:middle;margin-right:6px;background:var(--c)}
+
+/* ---------- manual ---------- */
+.manual{background:var(--panel);border:1px solid #000;border-radius:14px;padding:clamp(18px,4vw,44px);box-shadow:0 18px 40px #000a;display:grid;grid-template-columns:220px minmax(0,1fr);gap:36px}
+.toc{position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px);align-self:start;display:grid;gap:2px;font-size:14px}
+.toc a{color:var(--muted);text-decoration:none;padding:4px 8px;border-left:2px solid var(--edge)}
+.toc a:hover{color:var(--ivory);border-color:var(--brass)}
+.doc{max-width:70ch;min-width:0}
+.doc h2{font-family:var(--f-display);font-weight:800;letter-spacing:.06em;color:var(--brass);font-size:clamp(26px,4vw,34px);margin:42px 0 10px;text-wrap:balance;line-height:1.1}
+.doc h2:first-child{margin-top:0}
+.doc h3{font-size:17px;margin:24px 0 6px;color:var(--ivory)}
+.doc p,.doc li{color:#ddd3bb}
+.doc code,.doc kbd{font-family:var(--f-mono);font-size:.92em;background:#0c0d0e;border:1px solid var(--edge);border-radius:4px;padding:1px 5px;color:var(--ivory)}
+.doc ol,.doc ul{padding-left:1.3em;display:grid;gap:6px}
+.doc .tip{border-left:3px solid var(--amber);background:#ffb43c12;padding:10px 14px;border-radius:0 6px 6px 0;margin:14px 0}
+.doc .warn{border-left:3px solid var(--fwd);background:#ff5b4512;padding:10px 14px;border-radius:0 6px 6px 0;margin:14px 0}
+.tbl{overflow-x:auto;margin:12px 0}
+.tbl table{border-collapse:collapse;font-size:14px;min-width:100%}
+.tbl th,.tbl td{border-bottom:1px solid var(--edge);padding:7px 10px;text-align:left;vertical-align:top}
+.tbl th{color:var(--brass);font-weight:600;font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.tbl td{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--f-mono)}
+.steps{counter-reset:s;list-style:none;padding:0!important}
+.steps>li{counter-increment:s;position:relative;padding-left:40px}
+.steps>li::before{content:counter(s);position:absolute;left:0;top:0;width:28px;height:28px;border-radius:50%;background:var(--brass);color:#1a1209;font-weight:700;display:grid;place-items:center;font-size:14px}
+.keysheet{font-family:var(--f-mono);font-size:13px}
+.keysheet td{white-space:nowrap}
+
+@media (max-width:820px){.manual{grid-template-columns:1fr}.toc{position:static;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="plate"><h1>ENIGMA</h1><span id="modelTag">ENIGMA I · 3 ROTORES</span></div>
+    <nav aria-label="Secciones">
+      <a href="#maquina" id="tabM" aria-current="page">Máquina</a>
+      <a href="#manual" id="tabD">Manual de uso</a>
+    </nav>
+  </header>
+
+  <!-- ===================== MÁQUINA ===================== -->
+  <main id="viewM" class="wrap">
+    <section class="case" aria-label="Máquina Enigma">
+      <div>
+        <h2 class="sec-label">Hoja de claves <small>la configuración del día</small></h2>
+        <div class="sheet">
+          <label class="field"><span>Modelo</span>
+            <select id="model">
+              <option value="I">Enigma I (Ejército / Luftwaffe)</option>
+              <option value="M3">Enigma M3 (Kriegsmarine)</option>
+              <option value="M4">Enigma M4 (U-Boot, 4 rotores)</option>
+            </select></label>
+          <label class="field"><span>Reflector (UKW)</span><select id="refl"></select></label>
+          <div class="field"><span>Acciones rápidas</span>
+            <div class="btns">
+              <button class="btn" id="randKey" type="button">Clave aleatoria</button>
+              <button class="btn" id="histKey" type="button">Ejemplo de 1941</button>
+            </div></div>
+        </div>
+        <p class="keyline" id="keyline" style="margin:12px 0 0"></p>
+      </div>
+
+      <div>
+        <h2 class="sec-label">Rotores <small>gira la rueda, usa las flechas o la rueda del ratón</small></h2>
+        <div class="rotorbay" id="rotorbay"></div>
+        <div class="btns" style="margin-top:10px;justify-content:center">
+          <button class="btn" id="resetPos" type="button">Volver a la posición inicial</button>
+          <label class="check"><input type="checkbox" id="nums"> Mostrar números (01–26) como la Enigma I</label>
+        </div>
+      </div>
+
+      <div>
+        <h2 class="sec-label">Panel de lámparas</h2>
+        <div class="board" id="lamps"></div>
+      </div>
+
+      <div>
+        <h2 class="sec-label">Teclado <small>haz clic o escribe con tu teclado</small></h2>
+        <div class="board" id="keys"></div>
+      </div>
+
+      <div>
+        <h2 class="sec-label">Clavijero (Steckerbrett) <small>toca dos letras para unirlas con un cable</small></h2>
+        <div class="plugwrap" id="plugwrap">
+          <svg id="cables" aria-hidden="true"></svg>
+          <div class="board" id="plugs"></div>
+        </div>
+        <div class="plug-tools">
+          <label class="field"><span>Pares de clavijas (escribe y pulsa Intro)</span><input type="text" id="pairsTxt" placeholder="Ej.: AV BS CG DL" autocomplete="off" spellcheck="false"></label>
+          <button class="btn" id="clearPlugs" type="button">Quitar cables</button>
+        </div>
+        <p class="msg" id="plugMsg"></p>
+      </div>
+    </section>
+
+    <div class="duo">
+      <section class="card" aria-label="Cinta de mensajes">
+        <h2 class="sec-label">Mensaje</h2>
+        <div class="tape-h"><span>Tecleado</span><button class="btn" type="button" data-copy="in">Copiar</button></div>
+        <div class="tape" id="tapeIn"></div>
+        <div class="tape-h"><span>Lámparas encendidas (resultado)</span><button class="btn" type="button" data-copy="out">Copiar</button></div>
+        <div class="tape out" id="tapeOut"></div>
+        <label class="field"><span>Cifrar o descifrar un texto entero</span>
+          <textarea id="bulk" spellcheck="false" placeholder="Pega aquí un texto en claro o un mensaje cifrado"></textarea></label>
+        <label class="check"><input type="checkbox" id="spaceX" checked> Cambiar espacios por X (no se aplica a textos en grupos de 5 letras)</label>
+        <div class="btns">
+          <button class="btn primary" id="runBulk" type="button">Pasar el texto por la máquina</button>
+          <button class="btn" id="clearTape" type="button">Borrar cinta</button>
+        </div>
+        <p class="msg" id="bulkMsg"></p>
+      </section>
+
+      <section class="card" aria-label="Recorrido de la señal">
+        <h2 class="sec-label">Recorrido de la señal</h2>
+        <div class="path" id="pathTxt"><i>Pulsa una tecla para ver el camino de la corriente.</i></div>
+        <div class="diagram" id="diagram"></div>
+        <div class="legend"><span style="--c:var(--fwd)">Ida (teclado → reflector)</span><span style="--c:var(--back)">Vuelta (reflector → lámpara)</span><span style="--c:#4a4c52">Cableado interno en esta posición</span></div>
+      </section>
+    </div>
+  </main>
+
+  <!-- ===================== MANUAL ===================== -->
+  <article id="viewD" class="manual" hidden>
+    <nav class="toc" aria-label="Índice del manual">
+      <a href="#m-que">Qué es la Enigma</a>
+      <a href="#m-partes">Partes de la máquina</a>
+      <a href="#m-modelos">Modelos y rotores</a>
+      <a href="#m-config">Configurarla paso a paso</a>
+      <a href="#m-cifrar">Cifrar un mensaje</a>
+      <a href="#m-descifrar">Descifrar un mensaje</a>
+      <a href="#m-ejemplo">Ejemplo guiado</a>
+      <a href="#m-historico">Procedimiento histórico</a>
+      <a href="#m-reglas">Reglas y convenciones</a>
+      <a href="#m-problemas">Si algo no cuadra</a>
+      <a href="#m-glosario">Glosario</a>
+    </nav>
+    <div class="doc">
+      <h2 id="m-que">Qué es la Enigma</h2>
+      <p>La Enigma fue una máquina de cifrado electromecánica que Alemania usó en la Segunda Guerra Mundial. Pulsas una letra en el teclado y se enciende otra letra distinta en el panel de lámparas. Esa es la letra cifrada. Después de cada pulsación los rotores giran, así que la misma letra casi nunca se cifra igual dos veces seguidas.</p>
+      <p>La máquina es <b>recíproca</b>: con la misma configuración, cifrar y descifrar es la misma operación. Si al teclear <code>HOLA</code> obtienes <code>IIBG</code>, al volver a la posición inicial y teclear <code>IIBG</code> obtienes <code>HOLA</code>. Por eso no hay un botón de "modo descifrar": solo hace falta que ambas máquinas empiecen con la misma configuración.</p>
+      <p>Este simulador reproduce el cableado real de todos los rotores y reflectores, el giro con el famoso "doble paso" y el clavijero. Un mensaje cifrado aquí se descifra igual en una Enigma real o en cualquier simulador fiel.</p>
+
+      <h2 id="m-partes">Partes de la máquina</h2>
+      <h3>Teclado (Tastatur)</h3>
+      <p>26 teclas en orden alemán QWERTZ, sin números ni signos. Puedes hacer clic en las teclas o escribir con tu teclado físico, siempre que no estés dentro de un campo de texto.</p>
+      <h3>Panel de lámparas (Lampenfeld)</h3>
+      <p>Al pulsar una tecla se ilumina la letra resultante. Mientras mantienes la tecla pulsada la lámpara sigue encendida, igual que en la máquina original.</p>
+      <h3>Rotores (Walzen)</h3>
+      <p>Son discos con 26 contactos en cada cara, cableados entre sí de forma desordenada. Cada rotor tiene tres ajustes:</p>
+      <ul>
+        <li><b>Tipo de rotor</b> (I, II, III…): cada uno tiene un cableado distinto. Eliges cuáles usar y en qué orden; eso se llama <i>Walzenlage</i>.</li>
+        <li><b>Anillo</b> (<i>Ringstellung</i>): desplaza el cableado interno respecto a las letras del exterior. Se fija antes de empezar y no se toca durante el mensaje.</li>
+        <li><b>Posición</b> (<i>Grundstellung</i>): la letra que se ve por la ventanilla. Es lo que giras con la rueda o con las flechas ▲ ▼.</li>
+      </ul>
+      <p>El rotor de la derecha avanza una posición en cada pulsación. Cuando pasa por su <b>muesca</b> (notch) arrastra al del medio, y el del medio arrastra al de la izquierda. La muesca de cada rotor aparece debajo de él en la máquina.</p>
+      <h3>Reflector (Umkehrwalze, UKW)</h3>
+      <p>Está a la izquierda de los rotores. Recibe la corriente y la devuelve por otro camino a través de los mismos rotores. Gracias a él la máquina es recíproca, y también por su culpa <b>ninguna letra puede cifrarse como sí misma</b>, un fallo que ayudó a los aliados a romper el cifrado.</p>
+      <h3>Clavijero (Steckerbrett)</h3>
+      <p>El panel frontal con 26 enchufes. Un cable une dos letras y las intercambia antes y después de pasar por los rotores. Si unes <code>A</code> con <code>V</code>, la A entra como V y una V que salga se convierte en A. Se usaban normalmente 10 cables, y como máximo caben 13. Las letras sin cable pasan sin cambios.</p>
+      <h3>Recorrido de la corriente</h3>
+      <p>Tecla → clavijero → rotor derecho → rotor central → rotor izquierdo (→ rotor griego en la M4) → reflector → de vuelta por los rotores en orden inverso → clavijero → lámpara. El panel <b>Recorrido de la señal</b> lo dibuja en rojo (ida) y azul (vuelta) para la última tecla pulsada, junto con todo el cableado interno en la posición actual.</p>
+
+      <h2 id="m-modelos">Modelos y rotores</h2>
+      <div class="tbl"><table>
+        <thead><tr><th>Modelo</th><th>Usado por</th><th>Rotores disponibles</th><th>Reflectores</th></tr></thead>
+        <tbody>
+          <tr><td>Enigma I</td><td>Ejército y Luftwaffe</td><td>3 de entre I–V</td><td>UKW-A, UKW-B, UKW-C</td></tr>
+          <tr><td>Enigma M3</td><td>Kriegsmarine</td><td>3 de entre I–VIII</td><td>UKW-B, UKW-C</td></tr>
+          <tr><td>Enigma M4</td><td>Submarinos (desde 1942)</td><td>3 de entre I–VIII + un 4.º rotor fino Beta o Gamma</td><td>UKW-B fino, UKW-C fino</td></tr>
+        </tbody></table></div>
+      <div class="tbl"><table>
+        <thead><tr><th>Rotor</th><th>Muesca (arrastra al pasar de…)</th></tr></thead>
+        <tbody class="mono">
+          <tr><td>I</td><td>Q → R</td></tr><tr><td>II</td><td>E → F</td></tr><tr><td>III</td><td>V → W</td></tr>
+          <tr><td>IV</td><td>J → K</td></tr><tr><td>V</td><td>Z → A</td></tr>
+          <tr><td>VI, VII, VIII</td><td>Z → A y M → N (dos muescas)</td></tr>
+          <tr><td>Beta, Gamma</td><td>No giran nunca (solo M4)</td></tr>
+        </tbody></table></div>
+      <p>El rotor griego de la M4 se coloca a la izquierda del todo y nunca avanza solo, pero sí puedes elegir su anillo y su posición. Con Beta en la posición A y anillo A junto al UKW-B fino, la M4 se comporta exactamente como una M3 con UKW-B. Así los submarinos podían hablar con estaciones de tres rotores.</p>
+
+      <h2 id="m-config">Configurarla paso a paso</h2>
+      <p>Una configuración completa, la "clave del día", tiene cinco partes. Todas están en la parte superior de la máquina y se resumen en la línea <b>Clave actual</b>.</p>
+      <ol class="steps">
+        <li><b>Elige el modelo.</b> En <i>Modelo</i> selecciona Enigma I, M3 o M4. Al cambiarlo se ajustan los rotores y reflectores permitidos.</li>
+        <li><b>Elige el reflector.</b> En <i>Reflector (UKW)</i>. El más habitual es el B.</li>
+        <li><b>Coloca los rotores (Walzenlage).</b> En cada rotor, usa el desplegable de arriba para elegir su tipo, de izquierda a derecha. Un rotor no puede repetirse: si eliges uno que ya está en otra ranura, los dos se intercambian.</li>
+        <li><b>Ajusta los anillos (Ringstellung).</b> En el desplegable <i>Anillo</i> de cada rotor. Las hojas de claves los daban como números (01–26) o letras (A–Z). 01 equivale a A, 02 a B, y así hasta 26, que es Z.</li>
+        <li><b>Conecta el clavijero (Steckerverbindungen).</b> Toca una letra del clavijero y después otra: aparecerá un cable entre ellas. Toca una letra con cable para quitarlo. También puedes escribir todos los pares en el campo de texto, separados por espacios (<code>AV BS CG DL FU HZ IN KM OW RX</code>), y pulsar Intro.</li>
+        <li><b>Pon la posición inicial (Grundstellung).</b> Gira cada rotor hasta que en su ventanilla aparezca la letra indicada. Puedes arrastrar la rueda estriada, usar las flechas ▲ ▼ o la rueda del ratón sobre ella. La máquina recuerda esta posición como <b>posición inicial</b>.</li>
+      </ol>
+      <div class="tip">El botón <b>Volver a la posición inicial</b> devuelve los rotores a la última posición que pusiste a mano y borra la cinta. Úsalo siempre antes de descifrar algo que acabas de cifrar.</div>
+      <h3>Ejemplo de hoja de claves</h3>
+      <p>Así se veía una línea de una hoja de claves de la Enigma I. Cada día del mes tenía su línea:</p>
+      <div class="tbl keysheet"><table>
+        <thead><tr><th>Día</th><th>UKW</th><th>Walzenlage</th><th>Ringstellung</th><th>Steckerverbindungen</th><th>Grundstellung</th></tr></thead>
+        <tbody><tr><td>7</td><td>B</td><td>II IV V</td><td>02 21 12</td><td>AV BS CG DL FU HZ IN KM OW RX</td><td>BLA</td></tr></tbody>
+      </table></div>
+      <p>Es exactamente la configuración que carga el botón <b>Ejemplo de 1941</b>.</p>
+
+      <h2 id="m-cifrar">Cifrar un mensaje</h2>
+      <ol class="steps">
+        <li>Configura la máquina como se explica arriba, o pulsa <b>Clave aleatoria</b> y apunta la línea <b>Clave actual</b>. El destinatario la necesitará.</li>
+        <li>Prepara el texto. La Enigma solo tiene 26 letras: sin espacios, sin números, sin acentos y sin Ñ. Escribe los números con letras (<code>DOS</code>, <code>TRES</code>) y usa <code>X</code> en lugar de espacios o puntos.</li>
+        <li>Teclea el mensaje letra a letra en el teclado. Anota la letra que se enciende cada vez; la máquina la va apuntando por ti en la cinta <b>Lámparas encendidas</b>.</li>
+        <li>Para textos largos, pégalos en <b>Cifrar o descifrar un texto entero</b> y pulsa <b>Pasar el texto por la máquina</b>. Los acentos se quitan, la Ñ pasa a N y los demás signos se ignoran.</li>
+        <li>Copia el resultado con <b>Copiar</b>. Sale en grupos de 5 letras, como se transmitía por radio.</li>
+      </ol>
+
+      <h2 id="m-descifrar">Descifrar un mensaje</h2>
+      <ol class="steps">
+        <li>Configura la máquina <b>exactamente igual</b> que la persona que cifró: modelo, reflector, rotores y su orden, anillos, cables y posición inicial.</li>
+        <li>Teclea o pega el texto cifrado. Los espacios entre grupos de 5 no importan; desmarca <i>Cambiar espacios por X</i> para que no se conviertan en letras.</li>
+        <li>El texto en claro aparece en la cinta de resultado. Las <code>X</code> suelen ser espacios.</li>
+      </ol>
+      <div class="warn">Si cifras algo y quieres comprobarlo descifrándolo, pulsa antes <b>Volver a la posición inicial</b>. Los rotores han avanzado una posición por cada letra, y si empiezas desde donde se quedaron, saldrá un texto sin sentido.</div>
+
+      <h2 id="m-ejemplo">Ejemplo guiado</h2>
+      <h3>1. Tu primer cifrado</h3>
+      <ol class="steps">
+        <li>Modelo <b>Enigma I</b>, reflector <b>B</b>.</li>
+        <li>Rotores de izquierda a derecha: <b>I</b>, <b>II</b>, <b>III</b>. Todos los anillos en <b>A (01)</b>.</li>
+        <li>Sin cables en el clavijero (pulsa <b>Quitar cables</b>).</li>
+        <li>Pon los tres rotores en <b>A</b>.</li>
+        <li>Teclea <code>HOLAXMUNDO</code>. Debe salir <code>IIBGT CLMRS</code>.</li>
+        <li>Pulsa <b>Volver a la posición inicial</b> y teclea <code>IIBGTCLMRS</code>. Vuelve a salir <code>HOLAX MUNDO</code>.</li>
+      </ol>
+      <p><button class="btn primary" type="button" id="loadSimple">Cargar esta configuración</button></p>
+      <p>Prueba también a teclear <code>AAAAA</code> desde <code>AAA</code>: el resultado correcto es <code>BDZGO</code>. Es la comprobación clásica de que un simulador está bien hecho.</p>
+      <h3>2. Un mensaje real de 1941</h3>
+      <p>Este mensaje del ejército alemán en el frente oriental se usa como referencia para comprobar simuladores. Pulsa el botón: se cargará la clave del día y el texto cifrado. Después pulsa <b>Pasar el texto por la máquina</b>.</p>
+      <p><button class="btn primary" type="button" id="loadHist">Cargar el mensaje de 1941</button></p>
+      <p>El resultado empieza por <code>AUFKLXABTEILUNGXVONXKURTINOWA…</code>. Cambiando las X por espacios: "Aufkl. Abteilung von Kurtinowa…", es decir, "Unidad de reconocimiento de Kurtinowa…".</p>
+
+      <h2 id="m-historico">Procedimiento histórico</h2>
+      <p>Los operadores no cifraban todo el mensaje con la posición del día, porque así cientos de mensajes compartirían el mismo punto de partida. Desde 1940 la Wehrmacht usaba una <b>clave de mensaje</b> propia en cada envío:</p>
+      <ol class="steps">
+        <li>Configura la máquina con la clave del día. Elige tú una posición inicial cualquiera, por ejemplo <code>WZA</code>, y otra al azar como clave del mensaje, por ejemplo <code>SXT</code>.</li>
+        <li>Con los rotores en <code>WZA</code>, teclea <code>SXT</code>. Supón que se encienden <code>UHL</code>.</li>
+        <li>Gira los rotores a <code>SXT</code> y cifra el mensaje.</li>
+        <li>Transmite en claro <code>WZA UHL</code> seguido del texto cifrado.</li>
+        <li>Quien recibe pone los rotores en <code>WZA</code>, teclea <code>UHL</code>, obtiene <code>SXT</code>, gira los rotores a esa posición y descifra el resto.</li>
+      </ol>
+      <p>No hace falta seguir este procedimiento para usar el simulador, pero así se usaba la máquina en la práctica.</p>
+
+      <h2 id="m-reglas">Reglas y convenciones</h2>
+      <ul>
+        <li><b>Ninguna letra se cifra como sí misma.</b> Si te sale la misma letra que pulsaste, algo falla en el simulador. Aquí no puede pasar.</li>
+        <li><b>Los rotores giran antes de cifrar.</b> Desde <code>AAA</code>, la primera letra se cifra ya en <code>AAB</code>.</li>
+        <li><b>Doble paso.</b> Cuando el rotor central llega a su muesca, en la pulsación siguiente avanza otra vez él mismo junto con el izquierdo. Con I-II-III, de <code>ADU</code> se pasa a <code>ADV</code>, luego <code>AEW</code> y luego <code>BFX</code>: el central avanza dos veces seguidas.</li>
+        <li><b>Espacios y signos.</b> <code>X</code> separaba palabras; <code>XX</code> o <code>J</code> se usaban como signos; los números se deletreaban.</li>
+        <li><b>Grupos de cinco.</b> Los mensajes se transmitían en grupos de 5 letras para evitar errores de radio. Los espacios entre grupos no forman parte del texto.</li>
+      </ul>
+
+      <h2 id="m-problemas">Si algo no cuadra</h2>
+      <ul>
+        <li><b>Sale texto sin sentido al descifrar.</b> Lo más común es haber empezado desde otra posición. Pulsa <b>Volver a la posición inicial</b> o pon a mano las letras de inicio.</li>
+        <li><b>Solo las primeras letras salen bien.</b> El anillo de algún rotor es distinto. El anillo cambia el momento en que gira el rotor del medio.</li>
+        <li><b>Salen bien algunas letras sueltas.</b> Algún cable del clavijero es distinto.</li>
+        <li><b>Nada coincide.</b> Revisa el orden de los rotores y el reflector, y en la M4 el rotor griego.</li>
+        <li><b>El teclado físico no hace nada.</b> Haz clic fuera de cualquier campo de texto para devolver el foco a la máquina.</li>
+      </ul>
+
+      <h2 id="m-glosario">Glosario</h2>
+      <div class="tbl"><table>
+        <thead><tr><th>Término</th><th>Significado</th></tr></thead>
+        <tbody>
+          <tr><td>Walzen</td><td>Rotores</td></tr>
+          <tr><td>Walzenlage</td><td>Qué rotores se usan y en qué orden</td></tr>
+          <tr><td>Ringstellung</td><td>Ajuste de anillos</td></tr>
+          <tr><td>Grundstellung</td><td>Posición inicial de los rotores</td></tr>
+          <tr><td>Umkehrwalze (UKW)</td><td>Reflector</td></tr>
+          <tr><td>Steckerbrett</td><td>Clavijero</td></tr>
+          <tr><td>Steckerverbindungen</td><td>Pares de clavijas conectados</td></tr>
+          <tr><td>Eintrittswalze (ETW)</td><td>Rueda de entrada fija, entre el clavijero y los rotores</td></tr>
+          <tr><td>Übertragskerbe</td><td>Muesca de arrastre de un rotor</td></tr>
+          <tr><td>Spruchschlüssel</td><td>Clave de mensaje elegida por el operador</td></tr>
+        </tbody></table></div>
+    </div>
+  </article>
+</div>
+
+<script>
+/*ENGINE*/
+const A='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const ROTORS={
+ I:{w:'EKMFLGDQVZNTOWYHXUSPAIBRCJ',n:'Q'}, II:{w:'AJDKSIRUXBLHWTMCQGZNPYFVOE',n:'E'},
+ III:{w:'BDFHJLCPRTXVZNYEIWGAKMUSQO',n:'V'}, IV:{w:'ESOVPZJAYQUIRHXLNFTGKDCMWB',n:'J'},
+ V:{w:'VZBRGITYUPSDNHLXAWMJQOFECK',n:'Z'}, VI:{w:'JPGVOUMFYQBENHZRDKASXLICTW',n:'ZM'},
+ VII:{w:'NZJHGRCXMYSWBOUFAIVLPEKQDT',n:'ZM'}, VIII:{w:'FKQHTLXOCBJSPDZRAMEWNIUYGV',n:'ZM'},
+ 'Beta':{w:'LEYJVCNIXWPBQMDRTAKZGFUHOS',n:''}, 'Gamma':{w:'FSOKANUERHMBTIQJXPGVZYLWDC',n:''}};
+const REFL={A:'EJMZALYXVBWFCRQUONTSPIKHGD',B:'YRUHQSLDPXNGOKMIEBFZCWVJAT',C:'FVPJIAOYEDRZXWGCTKUQSBNMHL',
+ 'B fino':'ENKQAUYWJICOPBLMDXZVFTHRGS','C fino':'RDOBJNTKVEHMLFCWZAXGYIPSUQ'};
+const idx=ch=>ch.charCodeAt(0)-65, mod=n=>((n%26)+26)%26;
+for(const k in ROTORS){const R=ROTORS[k];R.fw=[...R.w].map(idx);R.inv=[];R.fw.forEach((o,i)=>R.inv[o]=i)}
+const REFLA={};for(const k in REFL)REFLA[k]=[...REFL[k]].map(idx);
+function through(s,c,back){const R=ROTORS[s.r],sh=s.pos-s.ring;return mod((back?R.inv:R.fw)[mod(c+sh)]-sh)}
+const atNotch=s=>ROTORS[s.r].n.includes(A[s.pos]);
+function step(sl){const n=sl.length,r=sl[n-1],m=sl[n-2],l=sl[n-3];
+ if(atNotch(m)){m.pos=mod(m.pos+1);l.pos=mod(l.pos+1)}else if(atNotch(r))m.pos=mod(m.pos+1);
+ r.pos=mod(r.pos+1)}
+// Mutates slot positions. seq = contact index at every boundary of the signal path.
+function encipher(st,c){step(st.slots);const seq=[c];c=st.plugs[c];seq.push(c);
+ for(let i=st.slots.length-1;i>=0;i--){c=through(st.slots[i],c,false);seq.push(c)}
+ c=REFLA[st.refl][c];seq.push(c);
+ for(let i=0;i<st.slots.length;i++){c=through(st.slots[i],c,true);seq.push(c)}
+ c=st.plugs[c];seq.push(c);return{out:c,seq}}
+/*/ENGINE*/
+
+const MODELS={
+  I:{tag:'ENIGMA I · 3 ROTORES',rotors:['I','II','III','IV','V'],refl:['A','B','C'],greek:false},
+  M3:{tag:'ENIGMA M3 · KRIEGSMARINE',rotors:['I','II','III','IV','V','VI','VII','VIII'],refl:['B','C'],greek:false},
+  M4:{tag:'ENIGMA M4 · 4 ROTORES',rotors:['I','II','III','IV','V','VI','VII','VIII'],refl:['B fino','C fino'],greek:true}};
+const LAYOUT=['QWERTZUIO','ASDFGHJK','PYXCVBNML'];
+const CABLE_COLORS=['#b3352b','#2d2d30','#8a5a2b','#3f6b3a','#2f4f7a','#7a2f6b','#9a7a2a','#5a5a5a','#a04a1a','#2a6a6a','#6a2a2a','#4a4a7a','#7a6a4a'];
+const $=s=>document.querySelector(s);
+const S={model:'I',refl:'B',slots:[],pairs:[],start:[],tapeIn:'',tapeOut:'',last:null,nums:false,sel:null,busy:false};
+const plugsArr=()=>{const p=[...Array(26).keys()];for(const[a,b]of S.pairs){p[a]=b;p[b]=a}return p};
+const fmtPos=p=>S.nums?String(p+1).padStart(2,'0'):A[p];
+const groups=s=>s.replace(/(.{5})/g,'$1 ').trim();
+
+/* ---------- settings ---------- */
+function setModel(m,keep){
+  S.model=m;const M=MODELS[m];
+  const prev=keep||S.slots.filter(s=>!['Beta','Gamma'].includes(s.r));
+  const used=new Set();const three=[];
+  for(let i=0;i<3;i++){let s=prev[prev.length-3+i]||{r:['I','II','III'][i],ring:0,pos:0};
+    if(!M.rotors.includes(s.r)||used.has(s.r))s={...s,r:M.rotors.find(r=>!used.has(r)&&!prev.some(p=>p.r===r))||M.rotors.find(r=>!used.has(r))};
+    used.add(s.r);three.push({...s})}
+  S.slots=M.greek?[{r:(S.slots[0]&&['Beta','Gamma'].includes(S.slots[0].r))?S.slots[0].r:'Beta',ring:0,pos:0},...three]:three;
+  if(!M.refl.includes(S.refl))S.refl=M.greek?'B fino':'B';
+  $('#model').value=m;$('#modelTag').textContent=M.tag;
+  $('#refl').innerHTML=M.refl.map(r=>`<option value="${r}">UKW-${r}</option>`).join('');$('#refl').value=S.refl;
+  buildRotors();saveStart();refresh();
+}
+function buildRotors(){
+  const M=MODELS[S.model],n=S.slots.length;
+  const names=n===4?['Griego','Izquierdo','Central','Derecho']:['Izquierdo','Central','Derecho'];
+  let h=`<div class="unit refl"><div class="ttl">Reflector</div><div class="refl-face" id="reflFace"></div><div class="notchinfo">fijo</div></div>`;
+  S.slots.forEach((s,i)=>{
+    const opts=(n===4&&i===0?['Beta','Gamma']:M.rotors).map(r=>`<option value="${r}">${r}</option>`).join('');
+    h+=`<div class="unit" data-i="${i}"><div class="ttl">${names[i]}</div>
+      <select class="r-type" aria-label="Tipo de rotor ${names[i]}">${opts}</select>
+      <div class="wheel">
+        <div class="window"><div class="strip"><span class="p"></span><div class="cur"></div><span class="nx"></span></div></div>
+        <div class="thumb" role="slider" tabindex="0" aria-label="Posición del rotor ${names[i]}"></div>
+        <div class="arrows"><button type="button" class="up" aria-label="Subir">▲</button><button type="button" class="dn" aria-label="Bajar">▼</button></div>
+      </div>
+      <label>Anillo<select class="r-ring">${[...A].map((c,k)=>`<option value="${k}">${c} (${String(k+1).padStart(2,'0')})</option>`).join('')}</select></label>
+      <div class="notchinfo"></div></div>`});
+  $('#rotorbay').innerHTML=h;
+  document.querySelectorAll('.unit[data-i]').forEach(u=>{
+    const i=+u.dataset.i,thumb=u.querySelector('.thumb');
+    u.querySelector('.r-type').onchange=e=>{const r=e.target.value,other=S.slots.findIndex((s,j)=>j!==i&&s.r===r);
+      if(other>=0)S.slots[other].r=S.slots[i].r;S.slots[i].r=r;refresh()};
+    u.querySelector('.r-ring').onchange=e=>{S.slots[i].ring=+e.target.value;refresh()};
+    u.querySelector('.up').onclick=()=>turn(i,1);u.querySelector('.dn').onclick=()=>turn(i,-1);
+    thumb.addEventListener('wheel',e=>{e.preventDefault();turn(i,e.deltaY>0?1:-1)},{passive:false});
+    u.querySelector('.window').addEventListener('wheel',e=>{e.preventDefault();turn(i,e.deltaY>0?1:-1)},{passive:false});
+    thumb.onkeydown=e=>{if(e.key==='ArrowUp'||e.key==='ArrowRight'){e.preventDefault();turn(i,1)}if(e.key==='ArrowDown'||e.key==='ArrowLeft'){e.preventDefault();turn(i,-1)}};
+    let y0=null;
+    thumb.onpointerdown=e=>{y0=e.clientY;thumb.setPointerCapture(e.pointerId)};
+    thumb.onpointermove=e=>{if(y0==null)return;const d=e.clientY-y0;if(Math.abs(d)>=14){turn(i,d>0?1:-1);y0=e.clientY}};
+    thumb.onpointerup=thumb.onpointercancel=()=>{y0=null};
+  });
+}
+function turn(i,d){if(S.busy)return;S.slots[i].pos=mod(S.slots[i].pos+d);saveStart();S.last=null;updateRotors([i]);renderKeyline();renderDiagram()}
+function saveStart(){S.start=S.slots.map(s=>s.pos)}
+
+function updateRotors(moved=[]){
+  $('#reflFace').textContent=S.refl.replace(' fino','');
+  document.querySelectorAll('.unit[data-i]').forEach(u=>{
+    const i=+u.dataset.i,s=S.slots[i];
+    u.querySelector('.r-type').value=s.r;u.querySelector('.r-ring').value=s.ring;
+    u.querySelector('.p').textContent=fmtPos(mod(s.pos-1));
+    u.querySelector('.cur').innerHTML=`${fmtPos(s.pos)}${S.nums?`<small>${A[s.pos]}</small>`:''}`;
+    u.querySelector('.nx').textContent=fmtPos(mod(s.pos+1));
+    u.querySelector('.thumb').setAttribute('aria-valuetext',A[s.pos]);
+    const n=ROTORS[s.r].n;u.querySelector('.notchinfo').textContent=n?`muesca ${[...n].join(' y ')}`:'no gira';
+    if(moved.includes(i)){for(const el of [u.querySelector('.strip'),u.querySelector('.thumb')]){
+      el.classList.remove('tick','spin');void el.offsetWidth;el.classList.add(el.classList.contains('strip')?'tick':'spin')}}
+  });
+}
+function renderKeyline(){
+  const ring=S.slots.map(s=>String(s.ring+1).padStart(2,'0')).join(' ');
+  const pairs=S.pairs.map(([a,b])=>A[a]+A[b]).join(' ')||'ninguno';
+  $('#keyline').innerHTML=`Clave actual: <b>${MODELS[S.model].tag.split(' ·')[0]}</b> · UKW <b>${S.refl}</b> · Rotores <b>${S.slots.map(s=>s.r).join(' ')}</b> · Anillos <b>${ring}</b> · Clavijas <b>${pairs}</b> · Inicio <b>${S.start.map(p=>A[p]).join('')}</b> · Ahora <b>${S.slots.map(s=>A[s.pos]).join('')}</b>`;
+}
+function refresh(){updateRotors();renderKeyline();renderPlugs();renderDiagram()}
+
+/* ---------- lamps & keys ---------- */
+function buildBoards(){
+  const mk=(cls,tag)=>LAYOUT.map(r=>`<div class="row">${[...r].map(c=>`<${tag} class="${cls}" data-c="${c}"${tag==='button'?' type="button"':''}>${c}</${tag}>`).join('')}</div>`).join('');
+  $('#lamps').innerHTML=mk('lamp','div');$('#keys').innerHTML=mk('key','button');
+  $('#plugs').innerHTML=LAYOUT.map(r=>`<div class="row">${[...r].map(c=>`<button type="button" class="socket" data-c="${c}" aria-label="Clavija ${c}"><span class="lbl">${c}</span><span class="holes"><i></i><i></i></span></button>`).join('')}</div>`).join('');
+  document.querySelectorAll('.key').forEach(k=>{
+    k.onpointerdown=e=>{e.preventDefault();keyDown(k.dataset.c)};
+    k.onpointerup=k.onpointerleave=k.onpointercancel=()=>keyUp(k.dataset.c);
+    k.onkeydown=e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();if(!e.repeat)keyDown(k.dataset.c)}};
+    k.onkeyup=e=>{if(e.key===' '||e.key==='Enter')keyUp(k.dataset.c)};
+  });
+  document.querySelectorAll('.socket').forEach(s=>s.onclick=()=>plugClick(idx(s.dataset.c)));
+}
+let held=null;
+function keyDown(ch){if(S.busy||held)return;held=ch;
+  document.querySelector(`.key[data-c="${ch}"]`).classList.add('down');
+  const out=press(idx(ch));lamp(out,true);click()}
+function keyUp(ch){if(held!==ch)return;held=null;document.querySelector(`.key[data-c="${ch}"]`).classList.remove('down');lamp(null)}
+function lamp(c){document.querySelectorAll('.lamp.on').forEach(l=>l.classList.remove('on'));if(c!=null)document.querySelector(`.lamp[data-c="${A[c]}"]`).classList.add('on')}
+function press(c){
+  const before=S.slots.map(s=>s.pos);
+  const r=encipher({refl:S.refl,slots:S.slots,plugs:plugsArr()},c);
+  S.tapeIn+=A[c];S.tapeOut+=A[r.out];S.last=r;
+  updateRotors(S.slots.map((s,i)=>s.pos!==before[i]?i:-1));renderTape();renderKeyline();renderDiagram();return r.out}
+
+document.addEventListener('keydown',e=>{
+  if(e.metaKey||e.ctrlKey||e.altKey||e.repeat)return;
+  if(e.target.closest?.('input,textarea,select')||!$('#viewD').hidden)return;
+  const ch=e.key.toUpperCase();if(/^[A-Z]$/.test(ch)){e.preventDefault();keyDown(ch)}});
+document.addEventListener('keyup',e=>{const ch=e.key.toUpperCase();if(/^[A-Z]$/.test(ch))keyUp(ch)});
+
+let ac=null;
+function click(){try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();const t=ac.currentTime;
+  const b=ac.createBuffer(1,ac.sampleRate*.04,ac.sampleRate),d=b.getChannelData(0);
+  for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,4);
+  const src=ac.createBufferSource(),g=ac.createGain(),f=ac.createBiquadFilter();f.type='bandpass';f.frequency.value=1800;
+  src.buffer=b;g.gain.value=.5;src.connect(f).connect(g).connect(ac.destination);src.start(t)}catch(e){}}
+
+/* ---------- plugboard ---------- */
+function plugClick(c){
+  const at=S.pairs.findIndex(p=>p.includes(c));
+  if(at>=0){S.pairs.splice(at,1);S.sel=null;afterPlugs('');return}
+  if(S.sel==null){S.sel=c;renderPlugs();return}
+  if(S.sel===c){S.sel=null;renderPlugs();return}
+  if(S.pairs.length>=13){S.sel=null;afterPlugs('Ya hay 13 cables: todas las letras están ocupadas.',true);return}
+  S.pairs.push([S.sel,c]);S.sel=null;afterPlugs('');
+}
+function afterPlugs(msg,err){S.last=null;$('#plugMsg').textContent=msg;$('#plugMsg').className='msg'+(err?' err':'');
+  $('#pairsTxt').value=S.pairs.map(([a,b])=>A[a]+A[b]).join(' ');renderPlugs();renderKeyline();renderDiagram()}
+function parsePairs(txt){
+  const toks=txt.toUpperCase().replace(/[^A-Z]+/g,' ').trim().split(' ').filter(Boolean),seen=new Set(),out=[];
+  for(const t of toks){if(t.length!==2)return{err:`"${t}" no es un par: escribe dos letras juntas, por ejemplo AV.`};
+    const[a,b]=[idx(t[0]),idx(t[1])];if(a===b)return{err:`"${t}": una letra no puede conectarse consigo misma.`};
+    for(const x of[a,b]){if(seen.has(x))return{err:`La letra ${A[x]} aparece en dos pares. Cada letra solo admite un cable.`};seen.add(x)}
+    out.push([a,b])}
+  if(out.length>13)return{err:'Como máximo caben 13 cables.'};return{pairs:out}}
+function renderPlugs(){
+  const used=new Map();S.pairs.forEach((p,k)=>p.forEach(c=>used.set(c,k)));
+  document.querySelectorAll('.socket').forEach(s=>{const c=idx(s.dataset.c);s.classList.toggle('used',used.has(c));s.classList.toggle('sel',S.sel===c)});
+  drawCables();
+}
+function drawCables(){
+  const svg=$('#cables'),box=$('#plugwrap').getBoundingClientRect();
+  svg.setAttribute('viewBox',`0 0 ${box.width} ${box.height}`);
+  const ctr=c=>{const r=document.querySelector(`.socket[data-c="${A[c]}"] .holes`).getBoundingClientRect();return[r.left-box.left+r.width/2,r.top-box.top+r.height/2]};
+  svg.innerHTML=S.pairs.map(([a,b],k)=>{const[x1,y1]=ctr(a),[x2,y2]=ctr(b),col=CABLE_COLORS[k%CABLE_COLORS.length];
+    const sag=40+Math.abs(x2-x1)*.25;
+    const d=`M${x1} ${y1} C${x1} ${y1+sag},${x2} ${y2+sag},${x2} ${y2}`;
+    const plug=(x,y)=>`<rect x="${x-9}" y="${y-8}" width="18" height="16" rx="3" fill="#0e0e0f" stroke="${col}" stroke-width="2"/><circle cx="${x}" cy="${y}" r="3" fill="${col}"/>`;
+    return`<path d="${d}" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" opacity=".55"/><path d="${d}" fill="none" stroke="${col}" stroke-width="5" stroke-linecap="round"/><path d="${d}" fill="none" stroke="#fff" stroke-width="1" opacity=".18" stroke-linecap="round"/>${plug(x1,y1)}${plug(x2,y2)}`}).join('');
+}
+new ResizeObserver(drawCables).observe(document.getElementById('plugwrap'));
+
+/* ---------- tape & bulk ---------- */
+function renderTape(){$('#tapeIn').textContent=groups(S.tapeIn);$('#tapeOut').textContent=groups(S.tapeOut)}
+// Text already in 5-letter radio groups: the spaces are separators, never words.
+const isGrouped=t=>/^[A-Z]{5}( [A-Z]{5})*( [A-Z]{1,5})?$/.test(t.replace(/\s+/g,' '));
+function clean(txt,spaceX){const t=txt.normalize('NFD').replace(/\p{M}/gu,'').toUpperCase().trim();
+  const grouped=isGrouped(t);
+  return{t:t.replace(/\s+/g,spaceX&&!grouped?'X':'').replace(/[^A-Z]/g,''),grouped:grouped&&spaceX}}
+async function runBulk(){
+  if(S.busy)return;const{t,grouped}=clean($('#bulk').value,$('#spaceX').checked);
+  if(!t){$('#bulkMsg').textContent='Escribe o pega primero algún texto con letras.';$('#bulkMsg').className='msg err';return}
+  S.busy=true;$('#runBulk').disabled=true;$('#bulkMsg').className='msg';$('#bulkMsg').textContent=`Procesando ${t.length} letras…`;
+  const delay=matchMedia('(prefers-reduced-motion: reduce)').matches?0:Math.max(4,Math.min(70,2400/t.length));
+  for(const ch of t){const out=press(idx(ch));if(delay){lamp(out);click();await new Promise(r=>setTimeout(r,delay))}}
+  lamp(null);S.busy=false;$('#runBulk').disabled=false;
+  $('#bulkMsg').textContent=`Listo: ${t.length} letras. El resultado está en la cinta de lámparas.`+(grouped?' El texto venía en grupos de 5, así que sus espacios se ignoraron en vez de convertirse en X.':'');$('#bulkMsg').className='msg ok';
+}
+
+/* ---------- signal diagram ---------- */
+function renderDiagram(){
+  const n=S.slots.length,plugs=plugsArr(),W=900,top=44,row=14,H=top+26*row+14;
+  const boxes=n+2,left=70,right=W-60,bw=(right-left)/boxes; // boxes: UKW, slots..., Stecker
+  const B=k=>left+bw*(k+1); // boundary k: B(0)=reflector|slot0 ... B(n)=ETW, B(n+1)=keyboard side
+  const Y=c=>top+c*row+row/2;
+  const curve=(x1,y1,x2,y2,attr)=>`<path d="M${x1} ${y1} C${(x1+x2)/2} ${y1},${(x1+x2)/2} ${y2},${x2} ${y2}" ${attr}/>`;
+  const arc=(x,y1,y2,attr)=>{const dx=Math.min(bw-10,12+Math.abs(y2-y1)*.22);return`<path d="M${x} ${y1} C${x-dx} ${y1},${x-dx} ${y2},${x} ${y2}" ${attr}/>`};
+  const thin='fill="none" stroke="#3d3f45" stroke-width="1"';
+  let s='';
+  const names=['UKW-'+S.refl,...S.slots.map(x=>x.r),'Clavijero'];
+  names.forEach((nm,k)=>{const x0=left+bw*k;
+    s+=`<rect x="${x0+3}" y="${top-6}" width="${bw-6}" height="${26*row+12}" rx="6" fill="${k===0?'#16171a':k===boxes-1?'#121315':'#1a1b1f'}" stroke="#2c2e33"/>`;
+    s+=`<text x="${x0+bw/2}" y="18" fill="#c79f55" font-family="IBM Plex Mono,monospace" font-size="13" font-weight="600" text-anchor="middle">${nm}</text>`;
+    if(k>0&&k<=n)s+=`<text x="${x0+bw/2}" y="34" fill="#a69d89" font-family="IBM Plex Mono,monospace" font-size="11" text-anchor="middle">ventana ${A[S.slots[k-1].pos]}</text>`;});
+  // internal wiring at current position
+  S.slots.forEach((sl,i)=>{for(let c=0;c<26;c++)s+=curve(B(i+1),Y(c),B(i),Y(through(sl,c,false)),thin)});
+  for(let c=0;c<26;c++)s+=curve(B(n+1),Y(c),B(n),Y(plugs[c]),plugs[c]===c?thin:'fill="none" stroke="#7a5a2a" stroke-width="1.5"');
+  const R=REFLA[S.refl];for(let c=0;c<26;c++)if(c<R[c])s+=arc(B(0),Y(c),Y(R[c]),thin);
+  // active path
+  const q=S.last&&S.last.seq.length===2*n+4?S.last.seq:null;
+  if(q){const f='fill="none" stroke="#ff5b45" stroke-width="3" stroke-linecap="round"',b='fill="none" stroke="#4fb4ff" stroke-width="3" stroke-linecap="round"';
+    s+=curve(B(n+1),Y(q[0]),B(n),Y(q[1]),f);
+    for(let i=n-1,k=2;i>=0;i--,k++)s+=curve(B(i+1),Y(q[k-1]),B(i),Y(q[k]),f);
+    s+=arc(B(0),Y(q[n+1]),Y(q[n+2]),'fill="none" stroke="#c78cff" stroke-width="3"');
+    for(let i=0;i<n;i++)s+=curve(B(i),Y(q[n+2+i]),B(i+1),Y(q[n+3+i]),b);
+    s+=curve(B(n),Y(q[2*n+2]),B(n+1),Y(q[2*n+3]),b);}
+  // contact dots + letters on the keyboard side
+  for(let k=0;k<=n+1;k++)for(let c=0;c<26;c++)s+=`<circle cx="${B(k)}" cy="${Y(c)}" r="2" fill="#6b6e76"/>`;
+  for(let c=0;c<26;c++){const hiIn=q&&q[0]===c,hiOut=q&&q[2*n+3]===c;
+    s+=`<text x="${B(n+1)+10}" y="${Y(c)+4}" font-family="IBM Plex Mono,monospace" font-size="11" font-weight="${hiIn||hiOut?700:400}" fill="${hiIn?'#ff5b45':hiOut?'#4fb4ff':'#a69d89'}">${A[c]}${hiIn?' ⟵ tecla':hiOut?' ⟶ lámpara':''}</text>`}
+  $('#diagram').innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Diagrama del cableado y del recorrido de la señal">${s}</svg>`;
+  // text chips
+  if(!q){$('#pathTxt').innerHTML='<i>Pulsa una tecla para ver el camino de la corriente.</i>';return}
+  const L=c=>A[c],parts=[`<i>tecla</i><b class="f">${L(q[0])}</b>`,`<i>clavijero</i><b class="f">${L(q[1])}</b>`];
+  for(let i=n-1,k=2;i>=0;i--,k++)parts.push(`<i>${S.slots[i].r}</i><b class="f">${L(q[k])}</b>`);
+  parts.push(`<i>UKW</i><b class="r">${L(q[n+2])}</b>`);
+  for(let i=0;i<n;i++)parts.push(`<i>${S.slots[i].r}</i><b class="r">${L(q[n+3+i])}</b>`);
+  parts.push(`<i>clavijero → lámpara</i><b class="r">${L(q[2*n+3])}</b>`);
+  $('#pathTxt').innerHTML=parts.join('<i>→</i>');
+}
+
+/* ---------- presets ---------- */
+function loadConfig(c){
+  S.refl=c.refl;setModel(c.model,c.slots.map(s=>({...s})));S.slots=c.slots.map(s=>({...s}));
+  S.pairs=c.pairs;S.tapeIn=S.tapeOut='';S.last=null;saveStart();
+  $('#pairsTxt').value=S.pairs.map(([a,b])=>A[a]+A[b]).join(' ');$('#plugMsg').textContent='';
+  updateRotors();renderTape();refresh();
+}
+const HIST={model:'I',refl:'B',slots:[{r:'II',ring:1,pos:idx('B')},{r:'IV',ring:20,pos:idx('L')},{r:'V',ring:11,pos:idx('A')}],
+  pairs:'AV BS CG DL FU HZ IN KM OW RX'.split(' ').map(p=>[idx(p[0]),idx(p[1])])};
+const HIST_CT='EDPUD NRGYS ZRCXN UYTPO MRMBO FKTBZ REZKM LXLVE FGUEY SIOZV EQMIK UBPMM YLKLT TDEIS MDICA GYKUA CTCDO MOHWX MUUIA UBSTS LRNBZ SZWNR FXWFY SSXJZ VIJHI DISHP RKLKA YUPAD TXQSP INQMA TLPIF SVKDA SCTAC DPBOP VHJK';
+const SIMPLE={model:'I',refl:'B',slots:[{r:'I',ring:0,pos:0},{r:'II',ring:0,pos:0},{r:'III',ring:0,pos:0}],pairs:[]};
+function loadHist(){loadConfig(HIST);$('#bulk').value=HIST_CT;$('#spaceX').checked=false;
+  $('#bulkMsg').className='msg ok';$('#bulkMsg').textContent='Clave del 1941 cargada. Pulsa "Pasar el texto por la máquina" para descifrar.'}
+function randomKey(){
+  const M=MODELS[S.model],pool=[...M.rotors].sort(()=>Math.random()-.5),rnd=()=>Math.floor(Math.random()*26);
+  const slots=pool.slice(0,3).map(r=>({r,ring:rnd(),pos:rnd()}));
+  if(M.greek)slots.unshift({r:Math.random()<.5?'Beta':'Gamma',ring:rnd(),pos:rnd()});
+  const letters=[...Array(26).keys()].sort(()=>Math.random()-.5),pairs=[];for(let i=0;i<20;i+=2)pairs.push([letters[i],letters[i+1]]);
+  loadConfig({model:S.model,refl:M.refl[Math.floor(Math.random()*M.refl.length)],slots,pairs});
+}
+
+/* ---------- wiring up ---------- */
+$('#model').onchange=e=>{S.last=null;setModel(e.target.value)};
+$('#refl').onchange=e=>{S.refl=e.target.value;S.last=null;refresh()};
+$('#nums').onchange=e=>{S.nums=e.target.checked;updateRotors()};
+$('#resetPos').onclick=()=>{if(S.busy)return;S.slots.forEach((s,i)=>s.pos=S.start[i]);S.tapeIn=S.tapeOut='';S.last=null;
+  updateRotors(S.slots.map((_,i)=>i));renderTape();refresh()};
+$('#clearTape').onclick=()=>{S.tapeIn=S.tapeOut='';renderTape()};
+$('#clearPlugs').onclick=()=>{S.pairs=[];S.sel=null;afterPlugs('')};
+$('#pairsTxt').onkeydown=e=>{if(e.key!=='Enter')return;const r=parsePairs(e.target.value);
+  if(r.err){$('#plugMsg').textContent=r.err;$('#plugMsg').className='msg err';return}S.pairs=r.pairs;afterPlugs(`${r.pairs.length} cables conectados.`)};
+$('#pairsTxt').onblur=e=>{const r=parsePairs(e.target.value);if(!r.err){S.pairs=r.pairs;afterPlugs('')}};
+$('#runBulk').onclick=runBulk;
+$('#randKey').onclick=randomKey;$('#histKey').onclick=loadHist;
+$('#loadSimple').onclick=()=>{loadConfig(SIMPLE);$('#bulk').value='HOLA MUNDO';$('#spaceX').checked=true;go('maquina')};
+$('#loadHist').onclick=()=>{loadHist();go('maquina')};
+document.querySelectorAll('[data-copy]').forEach(b=>b.onclick=async()=>{
+  const el=b.dataset.copy==='in'?$('#tapeIn'):$('#tapeOut');
+  try{await navigator.clipboard.writeText(el.textContent);b.textContent='Copiado';setTimeout(()=>b.textContent='Copiar',1200)}
+  catch(e){const r=document.createRange();r.selectNodeContents(el);const sel=getSelection();sel.removeAllRanges();sel.addRange(r);b.textContent='Selecciona y copia'}});
+
+function go(view){const man=view==='manual';$('#viewM').hidden=man;$('#viewD').hidden=!man;
+  $('#tabM').setAttribute('aria-current',man?'false':'page');$('#tabD').setAttribute('aria-current',man?'page':'false');
+  if(location.hash.slice(1)!==view)history.replaceState(null,'','#'+view);
+  window.scrollTo(0,0);if(!man)requestAnimationFrame(drawCables)}
+$('#tabM').onclick=e=>{e.preventDefault();go('maquina')};$('#tabD').onclick=e=>{e.preventDefault();go('manual')};
+document.querySelectorAll('.toc a').forEach(a=>a.onclick=e=>{e.preventDefault();document.querySelector(a.getAttribute('href')).scrollIntoView({behavior:'smooth'})});
+
+buildBoards();
+S.slots=SIMPLE.slots.map(s=>({...s}));setModel('I');
+go(location.hash==='#manual'||location.hash.startsWith('#m-')?'manual':'maquina');
+</script>
