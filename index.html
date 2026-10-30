@@ -130,6 +130,11 @@ select,input[type=text],textarea{background:#0c0d0e;border:1px solid var(--edge)
 .tape-h{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
 .tape-h .btn{padding:4px 10px;font-size:12px;text-transform:none;letter-spacing:0}
 textarea{min-height:90px;resize:vertical;font-family:var(--f-mono)}
+#readable{min-height:70px;font-family:var(--f-body);font-size:16px}
+.translate{display:flex;flex-wrap:wrap;gap:8px;align-items:end}
+.translate .field{flex:1 1 160px}
+a.btn{text-decoration:none;text-align:center;color:inherit}
+a.btn.primary{color:#1a1209}
 .check{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--muted)}
 .path{display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-family:var(--f-mono);font-size:13px}
 .path b{display:inline-grid;place-items:center;min-width:24px;height:24px;border-radius:4px;background:#0c0d0e;border:1px solid var(--edge)}
@@ -241,6 +246,17 @@ textarea{min-height:90px;resize:vertical;font-family:var(--f-mono)}
         <div class="tape" id="tapeIn"></div>
         <div class="tape-h"><span>Lámparas encendidas (resultado)</span><button class="btn" type="button" data-copy="out">Copiar</button></div>
         <div class="tape out" id="tapeOut"></div>
+        <label class="field"><span>Mensaje legible al descifrar (X → espacio, NY → Ñ). Puedes corregirlo a mano</span>
+          <textarea id="readable" spellcheck="false" placeholder="Aquí aparece el resultado con espacios y sin grupos de 5"></textarea></label>
+        <div class="translate">
+          <label class="field"><span>Traducir a</span>
+            <select id="lang">
+              <option value="es">Español</option><option value="en">Inglés</option><option value="fr">Francés</option>
+              <option value="de">Alemán</option><option value="it">Italiano</option><option value="pt">Portugués</option>
+            </select></label>
+          <a class="btn primary" id="trLink" href="https://translate.google.com/" target="_blank" rel="noopener">Traducir en Google Traductor ↗</a>
+        </div>
+        <p class="msg">Se abre una pestaña de Google Traductor con el mensaje legible, que detecta solo el idioma original. El texto se envía a Google.</p>
         <label class="field"><span>Cifrar o descifrar un texto entero</span>
           <textarea id="bulk" spellcheck="false" placeholder="Pega aquí un texto en claro o un mensaje cifrado"></textarea></label>
         <label class="check"><input type="checkbox" id="spaceX" checked> Cambiar espacios por X (no se aplica a textos en grupos de 5 letras)</label>
@@ -353,7 +369,10 @@ textarea{min-height:90px;resize:vertical;font-family:var(--f-mono)}
         <li>Configura la máquina <b>exactamente igual</b> que la persona que cifró: modelo, reflector, rotores y su orden, anillos, cables y posición inicial.</li>
         <li>Teclea o pega el texto cifrado. Los espacios entre grupos de 5 no importan; desmarca <i>Cambiar espacios por X</i> para que no se conviertan en letras.</li>
         <li>El texto en claro aparece en la cinta de resultado. Las <code>X</code> suelen ser espacios y <code>NY</code> suele ser una Ñ.</li>
+        <li>Lee el campo <b>Mensaje legible</b>: ya muestra las X como espacios, las NY como Ñ y el texto sin grupos de 5. Si alguna X era parte de una palabra, como en <code>EXALTAR</code>, corrígelo ahí a mano.</li>
+        <li>Si el mensaje está en otro idioma, elige el idioma en <b>Traducir a</b> y pulsa <b>Traducir en Google Traductor</b>. Se abre una pestaña nueva con la traducción, y Google detecta solo el idioma original.</li>
       </ol>
+      <div class="tip">Los mensajes militares alemanes usan abreviaturas y convenciones propias que un traductor automático no conoce: <code>Q</code> en lugar de <code>CH</code> (<code>AQT</code> es <code>ACHT</code>, "ocho"), <code>SZ</code> en lugar de <code>ß</code> y palabras recortadas como <code>AUFKL</code> por <i>Aufklärung</i> ("reconocimiento"). Corrige esas partes en el mensaje legible antes de traducir y la traducción saldrá mucho mejor.</div>
       <div class="warn">Si cifras algo y quieres comprobarlo descifrándolo, pulsa antes <b>Volver a la posición inicial</b>. Los rotores han avanzado una posición por cada letra, y si empiezas desde donde se quedaron, saldrá un texto sin sentido.</div>
 
       <h2 id="m-ejemplo">Ejemplo guiado</h2>
@@ -371,7 +390,7 @@ textarea{min-height:90px;resize:vertical;font-family:var(--f-mono)}
       <h3>2. Un mensaje real de 1941</h3>
       <p>Este mensaje del ejército alemán en el frente oriental se usa como referencia para comprobar simuladores. Pulsa el botón: se cargará la clave del día y el texto cifrado. Después pulsa <b>Pasar el texto por la máquina</b>.</p>
       <p><button class="btn primary" type="button" id="loadHist">Cargar el mensaje de 1941</button></p>
-      <p>El resultado empieza por <code>AUFKLXABTEILUNGXVONXKURTINOWA…</code>. Cambiando las X por espacios: "Aufkl. Abteilung von Kurtinowa…", es decir, "Unidad de reconocimiento de Kurtinowa…".</p>
+      <p>El resultado empieza por <code>AUFKLXABTEILUNGXVONXKURTINOWA…</code>. Cambiando las X por espacios: "Aufkl. Abteilung von Kurtinowa…", es decir, "Unidad de reconocimiento de Kurtinowa…". Elige un idioma en <b>Traducir a</b> y pulsa <b>Traducir en Google Traductor</b> para leer el mensaje completo en tu idioma.</p>
 
       <h2 id="m-historico">Procedimiento histórico</h2>
       <p>Los operadores no cifraban todo el mensaje con la posición del día, porque así cientos de mensajes compartirían el mismo punto de partida. Desde 1940 la Wehrmacht usaba una <b>clave de mensaje</b> propia en cada envío:</p>
@@ -605,7 +624,11 @@ function drawCables(){
 new ResizeObserver(drawCables).observe(document.getElementById('plugwrap'));
 
 /* ---------- tape & bulk ---------- */
-function renderTape(){$('#tapeIn').textContent=groups(S.tapeIn);$('#tapeOut').textContent=groups(S.tapeOut)}
+function renderTape(){$('#tapeIn').textContent=groups(S.tapeIn);$('#tapeOut').textContent=groups(S.tapeOut);
+  $('#readable').value=readable(S.tapeOut,$('#nyEnye').checked);updateTranslate()}
+const readable=(s,ny)=>{const t=s.replace(/X+/g,' ').trim();return ny?t.replace(/NY/g,'Ñ'):t};
+function updateTranslate(){const t=$('#readable').value.trim();
+  $('#trLink').href=t?`https://translate.google.com/?sl=auto&tl=${$('#lang').value}&text=${encodeURIComponent(t)}&op=translate`:'https://translate.google.com/'}
 // Text already in 5-letter radio groups: the spaces are separators, never words.
 const isGrouped=t=>/^[A-Z]{5}( [A-Z]{5})*( [A-Z]{1,5})?$/.test(t.replace(/\s+/g,' '));
 function clean(txt,spaceX,ny){const t=(ny?txt.replace(/ñ/gi,'NY'):txt).normalize('NFD').replace(/\p{M}/gu,'').toUpperCase().trim();
@@ -696,6 +719,8 @@ $('#pairsTxt').onkeydown=e=>{if(e.key!=='Enter')return;const r=parsePairs(e.targ
   if(r.err){$('#plugMsg').textContent=r.err;$('#plugMsg').className='msg err';return}S.pairs=r.pairs;afterPlugs(`${r.pairs.length} cables conectados.`)};
 $('#pairsTxt').onblur=e=>{const r=parsePairs(e.target.value);if(!r.err){S.pairs=r.pairs;afterPlugs('')}};
 $('#runBulk').onclick=runBulk;
+$('#readable').oninput=updateTranslate;$('#lang').onchange=updateTranslate;
+$('#nyEnye').onchange=renderTape;
 $('#randKey').onclick=randomKey;$('#histKey').onclick=loadHist;
 $('#loadSimple').onclick=()=>{loadConfig(SIMPLE);$('#bulk').value='HOLA MUNDO';$('#spaceX').checked=true;go('maquina')};
 $('#loadHist').onclick=()=>{loadHist();go('maquina')};
