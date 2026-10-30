@@ -244,6 +244,7 @@ textarea{min-height:90px;resize:vertical;font-family:var(--f-mono)}
         <label class="field"><span>Cifrar o descifrar un texto entero</span>
           <textarea id="bulk" spellcheck="false" placeholder="Pega aquí un texto en claro o un mensaje cifrado"></textarea></label>
         <label class="check"><input type="checkbox" id="spaceX" checked> Cambiar espacios por X (no se aplica a textos en grupos de 5 letras)</label>
+        <label class="check"><input type="checkbox" id="nyEnye" checked> Escribir la Ñ como NY (si no, se convierte en N)</label>
         <div class="btns">
           <button class="btn primary" id="runBulk" type="button">Pasar el texto por la máquina</button>
           <button class="btn" id="clearTape" type="button">Borrar cinta</button>
@@ -341,9 +342,9 @@ textarea{min-height:90px;resize:vertical;font-family:var(--f-mono)}
       <h2 id="m-cifrar">Cifrar un mensaje</h2>
       <ol class="steps">
         <li>Configura la máquina como se explica arriba, o pulsa <b>Clave aleatoria</b> y apunta la línea <b>Clave actual</b>. El destinatario la necesitará.</li>
-        <li>Prepara el texto. La Enigma solo tiene 26 letras: sin espacios, sin números, sin acentos y sin Ñ. Escribe los números con letras (<code>DOS</code>, <code>TRES</code>) y usa <code>X</code> en lugar de espacios o puntos.</li>
+        <li>Prepara el texto. La Enigma solo tiene 26 letras: sin espacios, sin números, sin acentos y sin Ñ. Escribe los números con letras (<code>DOS</code>, <code>TRES</code>), usa <code>X</code> en lugar de espacios o puntos y escribe la Ñ como <code>NY</code> (<code>AÑO</code> → <code>ANYO</code>).</li>
         <li>Teclea el mensaje letra a letra en el teclado. Anota la letra que se enciende cada vez; la máquina la va apuntando por ti en la cinta <b>Lámparas encendidas</b>.</li>
-        <li>Para textos largos, pégalos en <b>Cifrar o descifrar un texto entero</b> y pulsa <b>Pasar el texto por la máquina</b>. Los acentos se quitan, la Ñ pasa a N y los demás signos se ignoran.</li>
+        <li>Para textos largos, pégalos en <b>Cifrar o descifrar un texto entero</b> y pulsa <b>Pasar el texto por la máquina</b>. Los acentos se quitan, la Ñ se escribe como NY (o como N si desmarcas esa casilla) y los demás signos se ignoran. Con tu teclado físico, la tecla Ñ también teclea N y después Y.</li>
         <li>Copia el resultado con <b>Copiar</b>. Sale en grupos de 5 letras, como se transmitía por radio.</li>
       </ol>
 
@@ -351,7 +352,7 @@ textarea{min-height:90px;resize:vertical;font-family:var(--f-mono)}
       <ol class="steps">
         <li>Configura la máquina <b>exactamente igual</b> que la persona que cifró: modelo, reflector, rotores y su orden, anillos, cables y posición inicial.</li>
         <li>Teclea o pega el texto cifrado. Los espacios entre grupos de 5 no importan; desmarca <i>Cambiar espacios por X</i> para que no se conviertan en letras.</li>
-        <li>El texto en claro aparece en la cinta de resultado. Las <code>X</code> suelen ser espacios.</li>
+        <li>El texto en claro aparece en la cinta de resultado. Las <code>X</code> suelen ser espacios y <code>NY</code> suele ser una Ñ.</li>
       </ol>
       <div class="warn">Si cifras algo y quieres comprobarlo descifrándolo, pulsa antes <b>Volver a la posición inicial</b>. Los rotores han avanzado una posición por cada letra, y si empiezas desde donde se quedaron, saldrá un texto sin sentido.</div>
 
@@ -389,6 +390,7 @@ textarea{min-height:90px;resize:vertical;font-family:var(--f-mono)}
         <li><b>Los rotores giran antes de cifrar.</b> Desde <code>AAA</code>, la primera letra se cifra ya en <code>AAB</code>.</li>
         <li><b>Doble paso.</b> Cuando el rotor central llega a su muesca, en la pulsación siguiente avanza otra vez él mismo junto con el izquierdo. Con I-II-III, de <code>ADU</code> se pasa a <code>ADV</code>, luego <code>AEW</code> y luego <code>BFX</code>: el central avanza dos veces seguidas.</li>
         <li><b>Espacios y signos.</b> <code>X</code> separaba palabras; <code>XX</code> o <code>J</code> se usaban como signos; los números se deletreaban.</li>
+        <li><b>La Ñ.</b> Ninguna Enigma tuvo Ñ: todos sus rotores tienen 26 contactos, y una letra más la haría incompatible con las máquinas reales. Este simulador la escribe como <code>NY</code>, así que al descifrar lee <code>NY</code> como Ñ: <code>ANYO</code> es "AÑO". Ojo con palabras que ya llevan NY, como <code>INYECCION</code> o <code>CONYUGE</code>: ahí el contexto decide. Si prefieres convertirla en una N simple, desmarca la casilla, pero entonces "AÑO" y "ANO" se cifran igual.</li>
         <li><b>Grupos de cinco.</b> Los mensajes se transmitían en grupos de 5 letras para evitar errores de radio. Los espacios entre grupos no forman parte del texto.</li>
       </ul>
 
@@ -556,8 +558,9 @@ function press(c){
 document.addEventListener('keydown',e=>{
   if(e.metaKey||e.ctrlKey||e.altKey||e.repeat)return;
   if(e.target.closest?.('input,textarea,select')||!$('#viewD').hidden)return;
-  const ch=e.key.toUpperCase();if(/^[A-Z]$/.test(ch)){e.preventDefault();keyDown(ch)}});
-document.addEventListener('keyup',e=>{const ch=e.key.toUpperCase();if(/^[A-Z]$/.test(ch))keyUp(ch)});
+  const ch=e.key.toUpperCase();if(/^[A-Z]$/.test(ch)){e.preventDefault();keyDown(ch)}
+  else if(ch==='Ñ'&&$('#nyEnye').checked&&!S.busy&&!held){e.preventDefault();press(idx('N'));lamp(press(idx('Y')));click()}});
+document.addEventListener('keyup',e=>{const ch=e.key.toUpperCase();if(/^[A-Z]$/.test(ch))keyUp(ch);else if(ch==='Ñ'&&!held)lamp(null)});
 
 let ac=null;
 function click(){try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();const t=ac.currentTime;
@@ -605,11 +608,11 @@ new ResizeObserver(drawCables).observe(document.getElementById('plugwrap'));
 function renderTape(){$('#tapeIn').textContent=groups(S.tapeIn);$('#tapeOut').textContent=groups(S.tapeOut)}
 // Text already in 5-letter radio groups: the spaces are separators, never words.
 const isGrouped=t=>/^[A-Z]{5}( [A-Z]{5})*( [A-Z]{1,5})?$/.test(t.replace(/\s+/g,' '));
-function clean(txt,spaceX){const t=txt.normalize('NFD').replace(/\p{M}/gu,'').toUpperCase().trim();
+function clean(txt,spaceX,ny){const t=(ny?txt.replace(/ñ/gi,'NY'):txt).normalize('NFD').replace(/\p{M}/gu,'').toUpperCase().trim();
   const grouped=isGrouped(t);
   return{t:t.replace(/\s+/g,spaceX&&!grouped?'X':'').replace(/[^A-Z]/g,''),grouped:grouped&&spaceX}}
 async function runBulk(){
-  if(S.busy)return;const{t,grouped}=clean($('#bulk').value,$('#spaceX').checked);
+  if(S.busy)return;const{t,grouped}=clean($('#bulk').value,$('#spaceX').checked,$('#nyEnye').checked);
   if(!t){$('#bulkMsg').textContent='Escribe o pega primero algún texto con letras.';$('#bulkMsg').className='msg err';return}
   S.busy=true;$('#runBulk').disabled=true;$('#bulkMsg').className='msg';$('#bulkMsg').textContent=`Procesando ${t.length} letras…`;
   const delay=matchMedia('(prefers-reduced-motion: reduce)').matches?0:Math.max(4,Math.min(70,2400/t.length));

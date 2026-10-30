@@ -15,3 +15,11 @@ const seen=[];for(let i=0;i<3;i++){encipher(st,0);seen.push(st.slots.map(s=>A[s.
 assert.deepEqual(seen,['ADV','AEW','BFX']);
 const h=run('B',['I','II','III'],[0,0,0],'AAA','','HOLAXMUNDO');console.log('HOLA',h,run('B',['I','II','III'],[0,0,0],'AAA','',h));
 console.log('ok');
+// Text preparation: Ñ → NY, spaces → X except in 5-letter groups.
+const page=fs.readFileSync(process.argv[2],'utf8');
+require('vm').runInThisContext(page.match(/const isGrouped[\s\S]*?\n}/)[0]+';globalThis.clean=clean');
+assert.deepEqual(clean('El año pasado',true,true),{t:'ELXANYOXPASADO',grouped:false});
+assert.deepEqual(clean('Año',true,false),{t:'ANO',grouped:false});
+assert.deepEqual(clean('Mañana ÁÉ',false,true),{t:'MANYANAAE',grouped:false});
+assert.deepEqual(clean('ATAQU EXALX NORTE',true,true),{t:'ATAQUEXALXNORTE',grouped:true});
+console.log('clean ok');
