@@ -85,6 +85,10 @@ Sube las 5 capturas en orden. Cada ranura de ASC pide su tamaño exacto; si no c
 
 Con una sola ranura llena, ASC reduce las capturas para los demás tamaños de iPhone. No hace falta iPad: la app es solo para iPhone.
 
+En la pestaña **Header and Search Results** (se regeneran abriendo `docs/store/art.html?mode=header|search` en Chrome a ese tamaño):
+- **Header** → `docs/store/art/header.jpg` (3840×1646).
+- **Search Results** → `docs/store/art/search.jpg` (1920×1280).
+
 **Nombre** (≤30)
 ```
 Máquina Enigma

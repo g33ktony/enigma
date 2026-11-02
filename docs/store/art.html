@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Stencil+Display:wght@800&family=IBM+Plex+Sans:wght@400&display=block" rel="stylesheet">
+<style>
+  /* Arte de "Header and Search Results" de ASC: header 3840×1646 y búsqueda 1920×1280, con capturas reales. */
+  html, body { margin: 0; overflow: hidden; }
+  body { position: relative; color: #ece2c9; font-family: 'IBM Plex Sans', sans-serif;
+         background: radial-gradient(ellipse at 65% 40%, #3a2416 0%, #1d120b 55%, #0e0f10 100%); }
+  .phone { position: absolute; width: var(--w); border-radius: 9% / 4.2%; overflow: hidden;
+           box-shadow: 0 0 0 calc(var(--w) * .018) #0b0b0c, 0 0 0 calc(var(--w) * .022) #c79f55, 0 60px 160px rgba(0,0,0,.6); }
+  .phone img { width: 100%; display: block; }
+  h1 { font-family: 'Big Shoulders Stencil Display', Impact, sans-serif; font-weight: 800; color: #c79f55;
+       margin: 0; letter-spacing: 4px; line-height: .98; }
+  .header { width: 3840px; height: 1646px; }
+  .header .copy { position: absolute; left: 260px; top: 470px; width: 1450px; }
+  .header h1 { font-size: 200px; }
+  .header p { font-size: 66px; line-height: 1.35; opacity: .85; margin: 56px 0 0; }
+  .search { width: 1920px; height: 1280px; }
+</style>
+</head>
+<body>
+<script>
+  const mode = new URLSearchParams(location.search).get('mode');
+  const phone = (src, w, x, y, rot = 0, z = 1) =>
+    `<div class="phone" style="--w:${w}px;left:${x}px;top:${y}px;transform:rotate(${rot}deg);z-index:${z}"><img src="raw/${src}.png"></div>`;
+  document.body.className = mode;
+  document.body.innerHTML = mode === 'header'
+    ? `<div class="copy"><h1>La Enigma real,<br>en tu iPhone</h1>
+         <p>Rotores, lámparas y clavijero como en 1941. Un solo pago, sin suscripciones.</p></div>`
+      + phone('02-clave', 640, 1850, 300, -6) + phone('01-maquina', 700, 2410, 170, 0, 2) + phone('03-senal', 640, 3010, 300, 6)
+    : phone('02-clave', 520, 170, 210, -5) + phone('01-maquina', 560, 680, 110, 0, 2) + phone('03-senal', 520, 1230, 210, 5);
+</script>
+</body>
+</html>
