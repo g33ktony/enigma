@@ -1,0 +1,60 @@
+{
+  "expo": {
+    "name": "Enigma",
+    "slug": "enigma",
+    "scheme": "enigma",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#2a1910",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.syntergy.enigma",
+      "appleTeamId": "W8239T4LQA",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.syntergy.enigma",
+      "adaptiveIcon": {
+        "backgroundColor": "#141517",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#141517"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "owner": "geektony",
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "72e86df8-9bcd-403d-92bc-00cb0758eb0f"
+      }
+    }
+  }
+}

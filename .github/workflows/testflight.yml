@@ -1,0 +1,53 @@
+name: TestFlight
+on:
+  push:
+    branches: [main]
+    paths:
+      - mobile/**
+  workflow_dispatch:
+
+# Un build a la vez. Si llegan varios merges mientras compila, GitHub deja solo el último en espera.
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+
+jobs:
+  ios:
+    name: Build en EAS y subir a TestFlight
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      # Hasta que exista el secreto EXPO_TOKEN el job termina en verde con un aviso, en lugar de fallar.
+      - name: Comprobar EXPO_TOKEN
+        id: token
+        working-directory: .
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::warning::Falta el secreto EXPO_TOKEN: créalo en expo.dev y añádelo en Settings → Secrets → Actions."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.token.outputs.ok == 'true'
+      - uses: pnpm/action-setup@v4
+        if: steps.token.outputs.ok == 'true'
+        with:
+          package_json_file: mobile/package.json
+      - uses: actions/setup-node@v4
+        if: steps.token.outputs.ok == 'true'
+        with:
+          node-version-file: mobile/.nvmrc
+          cache: pnpm
+          cache-dependency-path: mobile/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        if: steps.token.outputs.ok == 'true'
+      # El build corre en los servidores de EAS (no hace falta Mac); al terminar, EAS lo sube solo a TestFlight.
+      - if: steps.token.outputs.ok == 'true'
+        run: npx -y eas-cli@latest build -p ios --profile production --non-interactive --no-wait --auto-submit
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
