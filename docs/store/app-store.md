@@ -5,7 +5,7 @@ Los textos ya respetan los límites de App Store Connect (ASC).
 
 - Bundle ID: `com.syntergy.enigma`
 - Proyecto EAS: https://expo.dev/accounts/geektony/projects/enigma
-- Capturas: `docs/store/iphone-6.9/*.jpg` (1320×2868, sin canal alfa). Se regeneran con `bash docs/store/make-screenshots.sh`.
+- Capturas: `docs/store/iphone-6.3/*.jpg` (1206×2622) y `docs/store/iphone-6.9/*.jpg` (1320×2868), sin canal alfa. Se regeneran con `bash docs/store/make-screenshots.sh`.
 - Privacidad: https://enigma-teal-three.vercel.app/privacy.html
 - Soporte: https://enigma-teal-three.vercel.app/support.html
 
@@ -79,8 +79,11 @@ Traductor solo cuando el usuario lo pulsa, y eso no cuenta como recopilación de
 
 ### 7. Ficha de la versión 1.0 (Español, México)
 
-Sube las 5 capturas de `docs/store/iphone-6.9/` en orden en **iPhone de 6.9"** (ASC las reutiliza para los demás
-tamaños de iPhone). No hace falta iPad: la app es solo para iPhone.
+Sube las 5 capturas en orden. Cada ranura de ASC pide su tamaño exacto; si no coincide, marca "File dimensions are invalid":
+- **iPhone with Dynamic Island (medium display)** → `docs/store/iphone-6.3/` (1206×2622).
+- Ranura de pantalla grande (6.9"), si aparece en "View All Sizes in Media Manager" → `docs/store/iphone-6.9/` (1320×2868).
+
+Con una sola ranura llena, ASC reduce las capturas para los demás tamaños de iPhone. No hace falta iPad: la app es solo para iPhone.
 
 **Nombre** (≤30)
 ```

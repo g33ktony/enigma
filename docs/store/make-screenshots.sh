@@ -4,7 +4,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-mkdir -p iphone-6.9
+mkdir -p iphone-6.9 iphone-6.3
 
 shot() { # archivo título subtítulo
   local q
@@ -14,7 +14,9 @@ shot() { # archivo título subtítulo
   # App Store rechaza capturas con canal alfa: se guardan como JPEG.
   sips -s format jpeg -s formatOptions 92 "iphone-6.9/$1" --out "iphone-6.9/${1%.png}.jpg" >/dev/null
   rm "iphone-6.9/$1"
-  echo "iphone-6.9/${1%.png}.jpg"
+  # Misma imagen para la ranura "medium display" (iPhone Pro de 6.3"): la proporción es prácticamente igual.
+  sips -z 2622 1206 "iphone-6.9/${1%.png}.jpg" --out "iphone-6.3/${1%.png}.jpg" >/dev/null
+  echo "iphone-6.9/${1%.png}.jpg  iphone-6.3/${1%.png}.jpg"
 }
 
 shot 01-maquina.png 'La Enigma real,<br>en tu iPhone' 'Pulsa una tecla y mira encenderse la lámpara.'
